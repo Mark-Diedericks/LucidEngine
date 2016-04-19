@@ -1,0 +1,6 @@
+Order in of attributes does not matter!
+
+diffuse=/res/textures/pattern.png
+color=1,1,1
+specInt=1
+specExp=8

@@ -1,0 +1,7 @@
+Lines: 8139
+Words: 51601
+Characters: 287806
+Classes: 85
+Imports: 438
+Variables: 475
+Methods: 893

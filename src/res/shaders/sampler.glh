@@ -1,0 +1,53 @@
+float sampleShadowMap(sampler2D shadowMap, vec2 shadowCoord, float fragmentDistance) {
+	return step(fragmentDistance, texture2D(shadowMap, shadowCoord.xy).r);
+}
+
+float sampleLinearShadowMap(sampler2D shadowMap, vec2 shadowCoord, float fragmentDistance, vec2 texelSize) {
+	vec2 pixelPosition = shadowCoord / texelSize + vec2(0.5);
+	vec2 fractPart = fract(pixelPosition);
+	vec2 startingTexel = (pixelPosition - fractPart) * texelSize;
+	
+	float BlTexel = sampleShadowMap(shadowMap, startingTexel, fragmentDistance);
+	float BrTexel = sampleShadowMap(shadowMap, startingTexel + vec2(texelSize.x, 0.0), fragmentDistance);
+	float TlTexel = sampleShadowMap(shadowMap, startingTexel + vec2(0.0, texelSize.y), fragmentDistance);
+	float TrTexel = sampleShadowMap(shadowMap, startingTexel + texelSize, fragmentDistance);
+	
+	float mixBlTl = mix(BlTexel, TlTexel, fractPart.y);
+	float mixBrTr = mix(BrTexel, TrTexel, fractPart.y);
+	
+	return mix(mixBlTl, mixBrTr, fractPart.x);
+}
+
+float samplePCFShadowMap(sampler2D shadowMap, vec2 shadowCoord, float fragmentDistance, vec2 texelSize) {
+	const float NUM_SAMPLES = 3.0f;
+	const float SAMPLES_START = (NUM_SAMPLES-1.0f)/2.0f;
+	const float NUM_SAMPLES_SQUARED = NUM_SAMPLES*NUM_SAMPLES;
+
+	float result = 0.0f;
+	
+	for(float y = -SAMPLES_START; y <= SAMPLES_START; y += 1.0f)
+	{
+		for(float x = -SAMPLES_START; x <= SAMPLES_START; x += 1.0f)
+		{
+			vec2 coordOffset = vec2(x, y) * texelSize;
+			result += sampleLinearShadowMap(shadowMap, shadowCoord + coordOffset, fragmentDistance, texelSize);
+		}
+	}
+	return result / NUM_SAMPLES_SQUARED;
+}
+
+float linStep(float low, float high, float x) {
+	return clamp((x - low) / (high - low), 0.0, 1.0);
+}
+
+float sampleVarianceShadowMap(vec4 shadowMap, vec2 shadowCoord, float fragmentDistance, float vMin, float lightBleedReduce) {
+	vec2 moments = vec2(1.0) - shadowMap.xy;
+	
+	float p = step(fragmentDistance, moments.x);
+	float variance = max(moments.y - (moments.x * moments.x), vMin);
+	
+	float d = fragmentDistance - moments.x;
+	float pMax = linStep(lightBleedReduce, 1.0, variance / (variance + (d * d)));
+	
+	return min(max(p, pMax), 1.0);
+}
